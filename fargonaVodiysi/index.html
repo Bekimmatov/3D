@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>FARG'ONA VODIYSI 3D XARITASI</title>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<base target="_blank">
+<link rel="stylesheet" type="text/css" href="./Qgis2threejs.css">
+<style type="text/css">
+/* Header, Footer va Popup joylashuvini sozlash */
+#popup, #layerpanel {
+  left: 36px;
+}
+
+/* Headerni markazlashtiruvchi va fiksatsiya qiluvchi tashqi qism */
+.header-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  text-align: center; /* #header divini markazga surish uchun */
+  z-index: 1000;
+  padding-top: 10px; /* #view ga berilgan paddingni to'ldirish uchun */
+}
+
+/* Headerning o'zi: Endi faqat matn o'lchamini oladi (inline-block) va fonda shaffoflik beradi */
+#header {
+  /* Markazda turishi uchun parentda text-align: center ishlatildi */
+  display: inline-block; /* Faqat kontent o'lchamida bo'lishi uchun */
+  background-color: rgba(30, 30, 30, 0.8); /* Fon shaffofligi (Matn bor qismga) */
+  color: #fff;
+  padding: 10px 20px; /* Yuqori/past 10px, chap/o'ng 20px */
+  font-size: 1.2em;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  border-radius: 5px; /* Yumaloq burchaklar qo'shish (ixtiyoriy) */
+}
+
+/* Footer: O'zgarishsiz */
+#footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(30, 30, 30, 0.8); /* Fon shaffofligi */
+  color: #fff;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.9em;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+#footer a {
+  color: #87ceeb; /* Havola rangi */
+  text-decoration: none;
+  margin: 0 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+#footer a:hover {
+  text-decoration: underline;
+}
+
+/* Ikonkalar uchun umumiy stil */
+.icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  fill: currentColor; /* Rangni matn rangidan olish */
+}
+
+/* Asosiy kontent head va footerdan pastda boshlanishi uchun joy qoldirish */
+#view {
+  padding-top: 60px; /* Yangi header-wrapper balandligiga moslash */
+  padding-bottom: 40px; /* Footer balandligi + biroz ko'proq */
+}
+
+/* Header qatlam tugmasidan o'tishi uchun chap tomondan 30px masofani saqlab qolish
+   Bu qismi endi kerak emas, chunki display: inline-block qilib markazga surildi
+   va qatlam tugmasi chapda pastroqda joylashgan.
+*/
+</style>
+<script src="./threejs/three.min.js"></script>
+<script src="./threejs/OrbitControls.js"></script>
+<script src="./threejs/ViewHelper.js"></script>
+<script src="./Qgis2threejs.js"></script>
+</head>
+<body>
+<div id="view">
+  <div id="northarrow"></div>
+  <div id="navigation"></div>
+</div>
+
+<div id="popup">
+  <div id="closebtn">&times;</div>
+  <div id="popupbar"></div>
+  <div id="popupbody">
+    <div id="popupcontent"></div>
+
+    <div id="queryresult">
+      <table id="qr_coords_table">
+        <caption>Bosilgan koordinatalar <div id="zoomtopoint" class="action-zoom zoombtn"></div></caption>
+        <tr><td id="qr_coords"></td></tr>
+      </table>
+
+      <table id="qr_layername_table">
+        <caption>Qatlam <div id="zoomtolayer" class="action-zoom zoombtn"></div></caption>
+        <tr><td id="qr_layername"></td></tr>
+      </table>
+
+      <table id="qr_attrs_table">
+        <caption>Xususiyatlar</caption>
+      </table>
+
+      <div id="orbitbtn" class="action-btn action-orbit">Aylantirish</div>
+      <div id="measurebtn" class="action-btn">Masofani o'lchash</div>
+    </div>
+
+    <div id="pageinfo">
+      
+      <h1>Foydalanish</h1>
+      <table id="usage">
+        <tr><td colspan="2" class="star">Sichqoncha</td></tr>
+        <tr><td>Chap tugma + Harakat</td><td>Aylantirish (Orbit)</td></tr>
+        <tr><td>Sichqoncha G'ildiragi</td><td>Kattalashtirish/Kichraytirish (Zoom)</td></tr>
+        <tr><td>O'ng tugma + Harakat</td><td>Pan (Yonga Surish)</td></tr>
+
+        <tr><td colspan="2" class="star">Klaviatura</td></tr>
+        <tr><td>Yo'nalish tugmalari</td><td>Gorizontal harakat</td></tr>
+        <tr><td>Shift + Yo'nalish tugmalari</td><td>Aylantirish (Orbit)</td></tr>
+        <tr><td>Ctrl + Yo'nalish tugmalari</td><td>Aylantirish (Rotate)</td></tr>
+        <tr><td>Shift + Ctrl + Yuqori / Pastga</td><td>Kattalashtirish / Kichraytirish</td></tr>
+        <tr><td>L</td><td>Yorliq ko'rinishini almashtirish</td></tr>
+        <tr><td>R</td><td>Aylanish animatsiyasini boshlash / to'xtatish</td></tr>
+        <tr><td>W</td><td>Simli Karkas (Wireframe) rejimi</td></tr>
+        <tr><td>Shift + R</td><td>Kamera holatini tiklash</td></tr>
+        <tr><td>Shift + S</td><td>Rasmni saqlash</td></tr>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<div id="progress"><div id="progressbar"></div></div>
+
+<div id="toolbtns">
+  <div id="layerbtn"></div>
+  <div id="animbtn" class="hidden"></div>
+  <div id="infobtn"></div>
+</div>
+
+<div class="header-wrapper">
+    <div id="header">FARGʻONA VODIYSI 3D XARITASI</div>
+</div>
+
+<div id="footer">
+  Muallif: Rahmatjon Bekimmatov |
+  <a href="https://www.instagram.com/bekimmatovv" target="_blank">
+    <svg class="icon" viewBox="0 0 24 24">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.25.148 4.773 1.677 4.925 4.925.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.148 3.25-1.677 4.773-4.925 4.925-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-3.25-.148-4.773-1.677-4.925-4.925-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.148-3.25 1.677-4.773 4.925-4.925 1.266-.058 1.646-.07 4.85-.07zm0 2.138c-3.195 0-3.568.012-4.838.07c-2.704.123-3.953 1.373-4.075 4.075-.058 1.27-.07 1.643-.07 4.838s.012 3.568.07 4.838c.123 2.704 1.373 3.953 4.075 4.075 1.27.058 1.643.07 4.838.07s3.568-.012 4.838-.07c2.704-.123 3.953-1.373 4.075-4.075.058-1.27.07-1.643.07-4.838s-.012-3.568-.07-4.838c-.123-2.704-1.373-3.953-4.075-4.075-1.27-.058-1.643-.07-4.838-.07zm0 1.986c2.454 0 4.45 1.996 4.45 4.45s-1.996 4.45-4.45 4.45-4.45-1.996-4.45-4.45 1.996-4.45 4.45-4.45zm0 2.138c-1.27 0-2.312 1.042-2.312 2.312s1.042 2.312 2.312 2.312 2.312-1.042 2.312-2.312-1.042-2.312-2.312-2.312zm6.204-5.32c0 .59-.48.59-1.07 0s-.59-.48 0-1.07 1.07 0 1.07 0z"/>
+    </svg>
+    bekimmatovv
+  </a>
+  <a href="https://t.me/Geografiya_Rahmatjon" target="_blank">
+    <svg class="icon" viewBox="0 0 24 24">
+      <path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.115 8.441c.27-.672.062-1.278-.517-1.503l-10.364-4.037c-.77-.301-1.468.188-1.22.846L3.99 10.745c.196.657-.023 1.25-.56 1.488l-.066.027c-.6.257-.525.688.082.884l1.32.42c.62.198.924.582 1.056 1.22L6.8 19.866c.264.664.78.847 1.343.492l1.6-1.18c.37-.27.6-.264 1.002-.127l4.98 1.83c.8.294 1.485.068 1.69-.74l2.5-11.75c.204-.808-.225-1.474-1.12-1.04l-7.3 3.424z"/>
+    </svg>
+    Telegram kanal
+  </a>
+</div>
+
+<div id="layerpanel">
+  <div id="layerlist"></div>
+</div>
+
+<div id="narrativebox" class="ef1">
+  <div id="narbody">
+
+  </div>
+  <div id="nextbtn"></div>
+</div>
+
+<script>
+Q3D.Config.allVisible = true;
+
+
+var container = document.getElementById("view"),
+    app = Q3D.application,
+    gui = Q3D.gui;
+
+app.init(container);       // initialize viewer
+
+// load the scene
+app.loadSceneFile("./data/index/scene.json", function (scene) {
+  // scene file has been loaded
+  app.start();
+}, function (scene) {
+  // all relevant files have been loaded
+
+});
+</script>
+</body>
+</html>
